@@ -1,0 +1,110 @@
+#The below displays include the following - JOINs, Group BYs, Order BYs, Create Tables, WITH CTE's, REPLACE, SUBSTRING_INDEX
+
+##CHECK DATA - Null ID's?
+SELECT  COUNT(ID) as NullIDs
+FROM artists
+WHERE ID  is null ;
+
+SELECT  COUNT(Artist_ID)  as NullIDs
+FROM top_songs_us
+WHERE Artist_ID  is null ;
+
+##CHECK DATA - Num of rows
+SELECT  COUNT(*)  as NumRows
+FROM top_songs_us; #389
+SELECT  COUNT(*)  as NumRows
+FROM artists; #173
+
+##join 2 tables
+CREATE TABLE ImpData	(
+SELECT 
+Name, 
+Gender, 
+Age, 
+Country, 
+artists.Popularity, 
+top_songs_us.Artist_Song_Rank, 
+top_songs_us.Track_Name,
+top_songs_us.Album_Name, 
+top_songs_us.Release_Date, 
+top_songs_us.Total_Album_Tracks,
+top_songs_us.Song_Duration
+from artists
+ 
+ JOIN top_songs_us
+ ON top_songs_us.Artist_Name = artists.Name
+ );
+ 
+ 
+##Clean out Genres
+CREATE TABLE FinalGenres (
+WITH FinalGenresTable as
+(
+WITH GenresTable as
+(
+SELECT Name, REPLACE(REPLACE(REPLACE(Genres,'[',''), '''',''),']','') as Genres2
+FROM artists 
+)
+SELECT 
+Name, 
+SUBSTRING_INDEX(SUBSTRING_INDEX(Genres2, ',', 1),',',-1) AS G1,
+SUBSTRING_INDEX(SUBSTRING_INDEX(Genres2, ',', 2),',',-1) AS G2,
+SUBSTRING_INDEX(SUBSTRING_INDEX(Genres2, ',', 3),',',-1) AS G3,  
+SUBSTRING_INDEX(SUBSTRING_INDEX(Genres2, ',', 4),',',-1) AS G4, 
+SUBSTRING_INDEX(SUBSTRING_INDEX(Genres2, ',', 5),',',-1) AS G5
+from GenresTable
+)
+SELECT *
+FROM FinalGenresTable 
+);
+
+##Join Genres with KeyColumns  ------ FINAL TABLE FOR ANALYSIS ----------
+CREATE TABLE alldata (
+Select ImpData.Name, Gender, Age, Country, Popularity, Artist_Song_Rank, Track_Name, Album_Name, Release_Date, Total_Album_Tracks, TRUNCATE((Song_Duration/1000)/60,2) as Song_Length, 
+finalGenres.G1, finalGenres.G2, finalGenres.G3, finalGenres.G4, finalGenres.G5
+from ImpData
+JOIN finalGenres
+ON ImpData.Name = finalGenres.Name
+);
+
+
+#----------GROUP BY's
+##Order by Max Pop
+SELECT Name, Max(Popularity) 
+FROM alldata
+GROUP BY Name, Popularity 
+ORDER BY popularity DESC;
+
+##What is the most pop Gender? Sum of the max score per artist
+WITH GenderPop AS (
+SELECT Name, MAX(Popularity) as MaxPop, Gender
+FROM alldata
+GROUP BY  Name, Popularity, Gender
+)
+SELECT Gender, SUM(MaxPop) 
+FROM GenderPop
+GROUP BY Gender ;
+
+##Average Song length
+Select TRUNCATE(SUM(Song_Length)/COUNT(Song_Length),2) as AvgSongLength
+From alldata; 
+
+##Avg Song length per Genre. Multiple song genres in diff columns
+Select G1, Avg(Song_Length) 
+From alldata
+GROUP BY G1, G2, G3, G4, G5;
+
+##Most popular Genre based on sum of popularity
+Select G1, SUM(Popularity)
+From alldata
+GROUP BY G1, G2, G3, G4, G5#, Song_Length
+ORDER BY SUM(Popularity) DESC;
+
+
+
+
+
+
+
+
+  
